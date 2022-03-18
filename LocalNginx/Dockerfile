@@ -1,25 +1,17 @@
-#Build Stage Start
+FROM ubuntu:latest
 
-#Specify a base image
-FROM node:alpine as builder 
+USER root
 
-#Specify a working directory
-WORKDIR '/app'
+WORKDIR app
 
-#Copy the dependencies file
-COPY package.json .
+RUN apt-get update -y
+RUN apt install nginx -y
+RUN echo "Hellow"
+ADD html.tar.gz /root
+COPY conf.conf .
 
-#Install dependencies
-RUN npm install
+EXPOSE 80
 
-#Copy remaining files
-COPY . .
+CMD ["nginx", "-g", "daemon off;"]
 
-#Build the project for production
-RUN npm run build 
 
-#Run Stage Start
-FROM nginx
-
-#Copy production build files from builder phase to nginx
-COPY --from=builder /app/build /usr/share/nginx/html
