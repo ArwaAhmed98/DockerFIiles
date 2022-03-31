@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+# This cluster role binding allows anyone in the "manager" group to read secrets in any namespace.
+kind: ClusterRoleBinding
+metadata:
+  name: haproxy-cluster-role-binding-devops 
+subjects:
+- kind: ServiceAccount
+  name: haproxy-service-account-devops # Name is case sensitive
+  namespace: haproxy-controller-devops
+roleRef:
+  kind: ClusterRole
+  name: haproxy-cluster-role-devops 
+  apiGroup: rbac.authorization.k8s.io	

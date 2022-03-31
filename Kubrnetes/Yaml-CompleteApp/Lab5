@@ -1,0 +1,196 @@
+1-
+arwa@ArwaPC:~/Documents/KubrnetesLabs/LabFive$ kubectl create namespace haproxy-controller-devops
+namespace/haproxy-controller-devops created
+
+-2-
+arwa@ArwaPC:~/Documents/KubrnetesLabs/LabFive$ kubectl create serviceaccount  haproxy-service-account-devops --namespace haproxy-controller-devops
+serviceaccount/haproxy-service-account-devops created
+
+-3-
+arwa@ArwaPC:~/Documents/KubrnetesLabs/LabFive$ kubectl create -f clusterrole.yml 
+clusterrole.rbac.authorization.k8s.io/secret-reader created
+
+-------------------------------------------------------------------------clusterRole.yml
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  # "namespace" omitted since ClusterRoles are not namespaced
+  name: secret-reader
+rules:
+- apiGroups: [""]
+  #
+  # at the HTTP level, the name of the resource for accessing Secret
+  # objects is "secrets"
+  resources: ["secrets","configmaps","endpoints","nodes","pods","services","namespaces","events","serviceaccounts"]
+  verbs: ["get", "watch", "list","create","patch","update"]
+  
+
+  
+  
+  -4-
+  ----------------------------------
+  arwa@ArwaPC:~/Documents/KubrnetesLabs/LabFive$ kubectl create -f clusterolebinding.yml
+clusterrolebinding.rbac.authorization.k8s.io/haproxy-cluster-role-binding-devops created
+
+  ----------------------------------------clusterrolebinding.yml
+  apiVersion: rbac.authorization.k8s.io/v1
+# This cluster role binding allows anyone in the "manager" group to read secrets in any namespace.
+kind: ClusterRoleBinding
+metadata:
+  name: haproxy-cluster-role-binding-devops 
+subjects:
+- kind: ServiceAccount
+  name: haproxy-service-account-devops # Name is case sensitive
+  namespace: haproxy-controller-devops
+roleRef:
+  kind: ClusterRole
+  name: haproxy-cluster-role-devops 
+  apiGroup: rbac.authorization.k8s.io	
+  
+ ---------------------------------------------------
+ -5-
+ arwa@ArwaPC:~/Documents/KubrnetesLabs/LabFive$ kubectl create deployment backend-deployment-devops  --replicas=1 --image=gcr.io/google_containers/defaultbackend:1.0 --port=8080 --dry-run=client -o yaml > backenddeploy.yml
+ 
+ arwa@ArwaPC:~/Documents/KubrnetesLabs/LabFive$ kubectl apply -f backenddeploy.yml 
+deployment.apps/backend-deployment-devops created
+-----------------------------------backend.yml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: ingress-default-backend
+  name: backend-deployment-devops
+  namespace: haproxy-controller-devops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ingress-default-backend
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: ingress-default-backend
+    spec:
+      containers:
+      - image: gcr.io/google_containers/defaultbackend:1.0
+        name: backend-container-devops
+        ports:
+        - containerPort: 8080
+        resources: {}
+status: {}
+
+--------------------------------------------------------
+-6-
+----------------------servicebackend.yml
+apiVersion: v1
+kind: Service
+metadata:
+  name:  service-backend-devops
+  namespace: haproxy-controller-devops
+  labels:
+    app: ingress-default-backend
+spec:
+  selector:
+    app: ingress-default-backend
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: port-backend
+------------------------------------------------------------------
+-7-
+arwa@ArwaPC:~/Documents/KubrnetesLabs/LabFive$ kubectl apply -f  deployFront.yml 
+deployment.apps/haproxy-ingress-devops created
+----------------------------------------------------deployFront.yml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: haproxy-ingress-devops
+  name: haproxy-ingress-devops
+  namespace: haproxy-controller-devops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hhaproxy-ingress
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: hhaproxy-ingress
+    spec:
+      serviceAccountName: haproxy-service-account-devops
+      containers:
+      - image: haproxytech/kubernetes-ingress
+        name: ingress-container-devops
+        args:
+        -  --default-backend-service=haproxy-controller-devops/service-backend-devops
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 1024
+        resources:
+          requests:
+            memory: "50Mi"
+            cpu: "500m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80
+          name: http
+        - containerPort: 443
+          name: https
+        - containerPort: 1024
+          name: stat
+        env:
+        - name: TZ
+          value: Etc/UTC
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace  
+------------------------------------------------------
+-8-
+arwa@ArwaPC:~/Documents/KubrnetesLabs/LabFive$ kubectl create -f FrontendService.yml 
+service/ingress-service-devops created
+--------------------------------------------FrontendService.yml
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-service-devops
+  namespace:  haproxy-controller-devops
+  labels:
+    app: haproxy-ingress
+spec:
+  type: NodePort
+  selector:
+    app: haproxy-ingress
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+    nodePort: 32456
+  - name: https
+    port: 443
+    targetPort: 443
+    nodePort: 32567
+  - name: stat
+    port: 1024
+    protocol: TCP
+    targetPort: 1024
+    nodePort: 32678
+
+

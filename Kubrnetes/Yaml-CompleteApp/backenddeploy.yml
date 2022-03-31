@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: ingress-default-backend
+  name: backend-deployment-devops
+  namespace: haproxy-controller-devops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ingress-default-backend
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: ingress-default-backend
+    spec:
+      containers:
+      - image: gcr.io/google_containers/defaultbackend:1.0
+        name: backend-container-devops
+        ports:
+        - containerPort: 8080
+        resources: {}
+status: {}
